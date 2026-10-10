@@ -32,7 +32,7 @@ Files generated while running (not committed):
 
 ## 2. Prerequisites (Ubuntu)
 
-The scripts use only standard tools: `bash`, `ls`, `cp`, `rm`, `mv`, `mkdir`, `grep`, `diff`, `basename`, `sleep`. These are installed on Ubuntu by default. You additionally need `make`, and `cron` for the bonus:
+The scripts use only standard tools: `bash`, `ls`, `cp`, `rm`, `mv`, `mkdir`, `grep`, `cmp`, `basename`, `sleep`. These are installed on Ubuntu by default. You additionally need `make`, and `cron` for the bonus:
 
 ```bash
 sudo apt update
@@ -135,9 +135,9 @@ This removes the two snapshot files. It does **not** touch `whitelist.txt` or th
 ## 4. How the daemon works
 
 1. **First run:** there is no `directory-info.last` yet, so the daemon scans `dir` immediately, then creates `directory-info.last` with `ls -l dir`.
-2. **Every `interval-secs`:** it saves `ls -l dir` to `directory-info.new` and compares it with `directory-info.last` using `diff`.
+2. **Every `interval-secs`:** it saves `ls -l dir` to `directory-info.new` and compares it with `directory-info.last` using `cmp`.
 3. **No difference:** nothing happens, and it waits for the next interval (no scan).
-4. **Difference:** it scans `dir`, then copies `directory-info.new` over `directory-info.last`.
+4. **Difference:** it scans `dir`, then takes a new `ls -l dir` snapshot into `directory-info.last` (taken after the scan, because the scan removes files from `dir`).
 
 For every malicious file found, the scan:
 
@@ -156,8 +156,8 @@ A file is malicious if **either** rule matches (and it is not whitelisted):
 
 **Where these lists are defined:** both lists are hardcoded in the single `elif` condition inside the `scan_files` function:
 
-* `antivirusd.sh` – **line 19** (extensions are the `*.exe`, `*.bat`, `*.vbs`, `*.scr`, `*.ps1` tests; keywords are in the `grep -qiE "virus|trojan|malware|worm|ransomware"` pattern)
-* `antivirus-cron.sh` – **line 22** (same condition)
+* `antivirusd.sh` – **line 22** (extensions are the `*.exe`, `*.bat`, `*.vbs`, `*.scr`, `*.ps1` tests; keywords are in the `grep -qiE "virus|trojan|malware|worm|ransomware"` pattern)
+* `antivirus-cron.sh` – **line 25** (same condition)
 
 ---
 
@@ -243,7 +243,7 @@ In `restore.sh`, choosing option **1 (Restore)**:
 
 ### How the daemon checks it
 
-At the start of each file's check in `scan_files` (`antivirusd.sh` line 15, `antivirus-cron.sh` line 18), the scanner takes the file's name and runs:
+At the start of each file's check in `scan_files` (`antivirusd.sh` line 18, `antivirus-cron.sh` line 21), the scanner takes the file's name and runs:
 
 ```bash
 grep -Fxq -- "$name" "$whitelist"

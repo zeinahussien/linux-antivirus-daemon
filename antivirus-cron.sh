@@ -11,9 +11,12 @@ target_dir=$1
 malicious_dir=$2
 interval_sec=$3
 
+mkdir -p "$malicious_dir"
+
 scan_files() {
-        for file in $target_dir/*
+        for file in "$target_dir"/*
         do
+            [ -f "$file" ] || continue
             name=$(basename "$file")
             if grep -Fxq -- "$name" "$whitelist"
             then
@@ -22,21 +25,20 @@ scan_files() {
             elif [[ "$file" == *.exe || "$file" == *.bat || "$file" == *.vbs || "$file" == *.scr || "$file" == *.ps1 ]] || grep -qiE "virus|trojan|malware|worm|ransomware" "$file"
             then
                 echo  "$file is malicious and DELETED"
-                cp "$file" "$malicious_dir"
-                rm "$file"
+                cp "$file" "$malicious_dir" && rm "$file"
             fi
         done
 }
 
 if  [[ -f "$last" ]]
 then
-    ls -l $target_dir > "$new"
-    if ! diff "$last" "$new" 
+    ls -l "$target_dir" > "$new"
+    if ! cmp -s "$last" "$new" 
     then
         scan_files
-        cp "$new" "$last"
+        ls -l "$target_dir" > "$last"
     fi
 else
     scan_files 
-    ls -l $target_dir > "$last" 
+    ls -l "$target_dir" > "$last" 
 fi

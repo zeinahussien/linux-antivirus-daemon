@@ -18,8 +18,10 @@ do
     echo "Files in $malicious_dir:"
     ls -l "$malicious_dir"
 
+    handled=0
     select file in "$malicious_dir"/*
     do
+        handled=1
         if [ -z "$file" ]
         then
             echo "Invalid selection. Please try again."
@@ -38,13 +40,14 @@ do
             read -r -p "Enter your choice (1, 2, 3, or 4):" choice || exit 0
             case $choice in
                 1)
-                    mv "$file" "$target_dir"
-                    echo "Restored $file to $target_dir"
-                    echo "$(basename "$file")" >> "$whitelist"
+                    if mv "$file" "$target_dir/"
+                    then
+                        echo "Restored $file to $target_dir"
+                        echo "$(basename "$file")" >> "$whitelist"
+                    fi
                     break 2;;
                 2)
-                    rm "$file"
-                    echo "Permanently deleted $file"
+                    rm "$file" && echo "Permanently deleted $file"
                     break 2;;
                 3)
                     echo "Skipped $file"
@@ -59,4 +62,9 @@ do
             esac
         done
     done
+
+    if [ $handled -eq 0 ]
+    then
+        exit 0
+    fi
 done
