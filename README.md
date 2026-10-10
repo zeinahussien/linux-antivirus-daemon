@@ -109,7 +109,7 @@ The detection engine scans files based on strict hardcoded rules defined within 
 
 ---
 
-## 🕒 Bonus 1: Cron Job Automation
+## Bonus 1: Cron Job Automation
 
 Instead of running as a continuous background loop with `sleep`, the antivirus monitor can be executed on a strict, fixed schedule using Linux `cron`. 
 
@@ -147,3 +147,35 @@ To schedule the scan precisely for 12:31 AM on the third Friday of every month, 
 * **`*`**: Every day of the month
 * **`*`**: Every month
 * **`5#3`**: The 3rd Friday (`5`) of the month
+
+---
+
+## Bonus 2: Persistent Whitelist Mechanism
+
+To prevent legitimate files that have been reviewed and restored by the user from being immediately detected and re-quarantined during the next daemon or cron scan, a persistent whitelist mechanism (`whitelist.txt`) is integrated into both the scanner and the restoration utility.
+
+### 1. Whitelist Integration in the Scanner (`antivirusd.sh` & `antivirus-cron.sh`)
+Before checking any file against malicious extensions or signature keywords, the scanner verifies whether the file path exists in `whitelist.txt` using a quiet `grep` check:
+```bash
+if grep -q "$file" whitelist.txt
+then
+    echo "$file is whitelisted and SKIPPED"
+elif [[ "$file" == *.exe || "$file" == *.bat || "$file" == *.vbs || "$file" == *.scr || "$file" == *.ps1 ]] || grep -qiE "virus|trojan|malware|worm|ransomware" "$file"
+then
+    echo "$file is malicious and DELETED"
+    cp "$file" "$malicious_dir"
+    rm "$file"
+fi
+```
+
+### 2. Whitelist Automation in the Restorer (`restore.sh`)
+When the user interacts with the `restore.sh` utility and chooses option `1` to restore a quarantined file back to the target directory, the script automatically records the file's path into `whitelist.txt` using the append (`>>`) operator:
+```bash
+1)
+    mv "$file" "$target_dir"
+    echo "Restored $file to $target_dir"
+    echo "$file" >> whitelist.txt
+    break
+    ;;
+```
+This ensures the restoration decision persists across system reboots and subsequent background scans.
