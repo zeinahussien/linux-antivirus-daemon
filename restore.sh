@@ -28,12 +28,13 @@ do
         echo "2. Delete the file permanently"
         echo "3. Skip / Leave the file as-is"
         echo "4. Exit"
-        read -p "Enter your choice (1, 2, 4, or 4):" choice
+        read -p "Enter your choice (1, 2, 3, or 4):" choice
 
         case $choice in
             1)
                 mv "$file" "$target_dir"
                 echo "Restored $file to $target_dir"
+                echo "$file" >> whitelist.txt
                 break
                 ;;
             2)
