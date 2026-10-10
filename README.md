@@ -1,4 +1,4 @@
-# Simple Antivirus Daemon (CC373 – Lab 2)
+# Simple Antivirus Daemon
 
 A small antivirus written in Bash. A daemon watches a directory, and whenever it changes, scans the files in it. Files that look malicious are reported, copied into a quarantine directory and removed from the original location. A separate interactive tool lets you review the quarantine and restore false positives or delete real threats. Files you restore are remembered in a whitelist so they are not flagged again.
 
