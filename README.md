@@ -108,3 +108,42 @@ The detection engine scans files based on strict hardcoded rules defined within 
    * ransomware
 
 ---
+
+## 🕒 Bonus 1: Cron Job Automation
+
+Instead of running as a continuous background loop with `sleep`, the antivirus monitor can be executed on a strict, fixed schedule using Linux `cron`. 
+
+### 1. Script Implementation (`antivirus-cron.sh`)
+The cron version performs a single execution cycle: it checks if a previous state (`directory-info.last`) exists. If it is the first run, it initializes the snapshot. On subsequent runs, it captures a new snapshot (`directory-info.new`), compares them using `diff`, and quarantines any flagged files if changes are detected.
+
+### 2. Prerequisites & Absolute Paths
+Because `cron` jobs run in a non-interactive background shell with a minimal environment:
+* Ensure your script has executable permissions:
+  ```bash
+  chmod +x antivirus-cron.sh
+  ```
+* Always use **absolute paths** for both the script and its arguments in your crontab configuration so the system can locate them reliably.
+
+### 3. Step-by-Step Manual to Configure the Cron Job
+1. Open your user crontab editor in the terminal:
+   ```bash
+   crontab -e
+   ```
+2. Add your scheduled cron job entry. 
+
+#### Example A: Running every 1 minute with a 23-second delay offset
+Standard Linux `cron` has a minimum resolution of 1 minute and cannot natively target specific seconds. To run a scan every 1 minute at second 23, configure cron to trigger every minute and use an internal `sleep` command:
+```text
+* * * * * sleep 23 && /absolute/path/to/linux-antivirus-daemon/antivirus-cron.sh /absolute/path/to/linux-antivirus-daemon/test_dir /absolute/path/to/linux-antivirus-daemon/quarantine
+```
+
+#### Example B: Running every 3rd Friday of the month at 12:31 AM
+To schedule the scan precisely for 12:31 AM on the third Friday of every month, use the following cron expression combining time fields with the day-of-week `#` modifier (`5#3`):
+```text
+31 0 * * 5#3 /absolute/path/to/linux-antivirus-daemon/antivirus-cron.sh /absolute/path/to/linux-antivirus-daemon/test_dir /absolute/path/to/linux-antivirus-daemon/quarantine
+```
+* **`31`**: Minute 31
+* **`0`**: Hour 0 (12:31 AM)
+* **`*`**: Every day of the month
+* **`*`**: Every month
+* **`5#3`**: The 3rd Friday (`5`) of the month
