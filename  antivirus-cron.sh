@@ -1,5 +1,12 @@
 #!/bin/bash
 
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+whitelist="$script_dir/whitelist.txt"
+touch "$whitelist"
+
+last="$script_dir/directory-info.last"
+new="$script_dir/directory-info.new"
+
 target_dir=$1
 malicious_dir=$2
 interval_sec=$3
@@ -7,7 +14,8 @@ interval_sec=$3
 scan_files() {
         for file in $target_dir/*
         do
-            if grep -q "$file" whitelist.txt
+            name=$(basename "$file")
+            if grep -Fxq -- "$name" "$whitelist"
             then
                 echo "$file is whitelisted and SKIPPED"
             
@@ -20,16 +28,14 @@ scan_files() {
         done
 }
 
-scan_files
-
-if  [[ -f "directory-info.last" ]]
+if  [[ -f "$last" ]]
 then
-    ls -l $target_dir > directory-info.new
-    if ! diff directory-info.last directory-info.new 
+    ls -l $target_dir > "$new"
+    if ! diff "$last" "$new" 
     then
         scan_files
-        cp directory-info.new directory-info.last
+        cp "$new" "$last"
     fi
 else
-    ls -l $target_dir > directory-info.last 
+    ls -l $target_dir > "$last" 
 fi

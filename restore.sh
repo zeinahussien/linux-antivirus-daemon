@@ -1,21 +1,23 @@
 #!/bin/bash
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+whitelist="$script_dir/whitelist.txt"
+touch "$whitelist"
 
 target_dir=$1
 malicious_dir=$2
 
-echo "Files in $malicious_dir:"
-ls -l "$malicious_dir"
-
-if [[ ! -d "$malicious_dir" || -z "$(ls -A "$malicious_dir")" ]]
-then
-    echo "No malicious files to review."
-    exit 0
-fi
 
 while true 
 do
+    if [[ ! -d "$malicious_dir" || -z "$(ls "$malicious_dir")" ]]
+    then
+    echo "No malicious files to review."
+    exit 0
+    fi
+
     echo "Files in $malicious_dir:"
     ls -l "$malicious_dir"
+
     select file in "$malicious_dir"/*
     do
         if [ -z "$file" ]
@@ -30,31 +32,31 @@ do
         echo "2. Delete the file permanently"
         echo "3. Skip / Leave the file as-is"
         echo "4. Exit"
-        read -p "Enter your choice (1, 2, 3, or 4):" choice
 
-        case $choice in
-            1)
-                mv "$file" "$target_dir"
-                echo "Restored $file to $target_dir"
-                echo "$file" >> whitelist.txt
-                break
-                ;;
-            2)
-                rm "$file"
-                echo "Permanently deleted $file"
-                break
-                ;;
-            3)
-                echo "Skipped $file"
-                break
-                ;;
-            4) 
-                echo "Exiting the review process."
-                exit 0
-                ;;
-            *)
-                echo "Invalid choice. Please try again."
-                ;;
-        esac
+        while true
+        do
+            read -r -p "Enter your choice (1, 2, 3, or 4):" choice || exit 0
+            case $choice in
+                1)
+                    mv "$file" "$target_dir"
+                    echo "Restored $file to $target_dir"
+                    echo "$(basename "$file")" >> "$whitelist"
+                    break 2;;
+                2)
+                    rm "$file"
+                    echo "Permanently deleted $file"
+                    break 2;;
+                3)
+                    echo "Skipped $file"
+                    break 2;;
+                4) 
+                    echo "Exiting the review process."
+                    exit 0
+                    ;;
+                *)
+                    echo "Invalid choice. Please try again."
+                    ;;
+            esac
+        done
     done
 done
