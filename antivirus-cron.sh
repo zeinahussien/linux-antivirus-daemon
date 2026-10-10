@@ -37,5 +37,6 @@ then
         cp "$new" "$last"
     fi
 else
+    scan_files 
     ls -l $target_dir > "$last" 
 fi

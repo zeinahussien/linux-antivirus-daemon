@@ -1,2 +1,2 @@
-echo "directory-info.*" > .gitignore
-echo "quarantine/*" >> .gitignore
+directory-info.*
+quarantine/*
