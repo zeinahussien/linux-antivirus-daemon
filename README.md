@@ -13,7 +13,7 @@ Assumption (as stated in the lab): the monitored directory contains **only files
 ├── antivirusd.sh        # Daemon: polls the directory, scans on change, quarantines files
 ├── restore.sh           # Interactive tool: restore / delete / skip quarantined files
 ├── antivirus-cron.sh    # Bonus 1: one-shot version of the daemon, meant to run from cron
-├── Makefile             # Targets: all/run, restore, setup (pre-build), clean
+├── Makefile             # Targets: all/run, restore, cron, install-cron, uninstall-cron, setup (pre-build), clean
 ├── whitelist.txt        # Bonus 2: filenames marked safe (written by restore.sh)
 ├── README.md            # This file
 ├── .gitignore           # Ignores snapshot files and quarantine contents
@@ -28,16 +28,38 @@ Files generated while running (not committed):
 | `directory-info.last` | daemon / cron script | `ls -l` snapshot from the last check |
 | `directory-info.new` | daemon / cron script | `ls -l` snapshot taken now, compared with `.last` |
 
+### Makefile targets
+
+| Command | What it does |
+|---|---|
+| `make` / `make run` | Runs `setup`, then starts the daemon `antivirusd.sh` |
+| `make restore` | Runs `setup`, then starts the interactive `restore.sh` |
+| `make setup` | Pre-build step: creates `test_dir/` and `quarantine/` if missing and makes the scripts executable |
+| `make cron` | Runs `antivirus-cron.sh` **once, right now** (manual test of the cron script) |
+| `make install-cron` | Adds the "every minute at second 23" job to your crontab |
+| `make uninstall-cron` | Removes that job from your crontab |
+| `make clean` | Removes the two snapshot files (`directory-info.last` / `.new`) |
+
 ---
 
-## 2. Prerequisites (Ubuntu)
+## 2. Prerequisites
 
-The scripts use only standard tools: `bash`, `ls`, `cp`, `rm`, `mv`, `mkdir`, `grep`, `cmp`, `basename`, `sleep`. These are installed on Ubuntu by default. You additionally need `make`, and `cron` for the bonus:
+The scripts use only standard tools: `bash`, `ls`, `cp`, `rm`, `mv`, `mkdir`, `grep`, `cmp`, `basename`, `sleep`. These are installed by default on Ubuntu and Fedora. You additionally need `make`, `git`, and a cron implementation for the bonus.
+
+### Ubuntu
 
 ```bash
 sudo apt update
 sudo apt install -y make cron git
 ```
+
+### Fedora
+
+```bash
+sudo dnf install -y make cronie git
+```
+
+> **Note:** the cron package/service has a different name per distribution: `cron` on Ubuntu, `cronie` (service `crond`) on Fedora.
 
 Check that everything is available:
 
@@ -55,8 +77,8 @@ make --version
 ### Step 1 – Get the project
 
 ```bash
-git clone <your-repository-url>
-cd <your-repository-folder>
+git clone https://github.com/zeinahussien/linux-antivirus-daemon.git
+cd linux-antivirus-daemon
 ```
 
 ### Step 2 – Run the antivirus daemon
@@ -130,6 +152,8 @@ make clean
 
 This removes the two snapshot files. It does **not** touch `whitelist.txt` or the quarantine.
 
+> `make clean` also does **not** remove the cron job. If you installed it, remove it with `make uninstall-cron` (see Bonus 1).
+
 ---
 
 ## 4. How the daemon works
@@ -175,21 +199,48 @@ A file is malicious if **either** rule matches (and it is not whitelisted):
 
 ### Prerequisites
 
-* `cron` installed and running:
+* `cron` installed and running.
+
+  Ubuntu:
   ```bash
   sudo apt install -y cron
   sudo systemctl enable --now cron
   systemctl status cron        # should say "active (running)"
   ```
+
+  Fedora:
+  ```bash
+  sudo dnf install -y cronie
+  sudo systemctl enable --now crond
+  systemctl status crond       # should say "active (running)"
+  ```
 * The script must be executable: `chmod +x antivirus-cron.sh` (or run `make setup`).
 * The monitored and quarantine directories must already exist (run `make setup` once).
 * Use **absolute paths** in the crontab. Find the project path with `pwd`.
 
-### Step-by-step setup
+### Quick setup using the Makefile
+
+The Makefile can install and remove the "every 1 minute at second 23" job for you. It builds the absolute paths automatically using make's `$(CURDIR)` variable.
+
+```bash
+make cron              # run the cron script once, right now (manual test)
+make install-cron      # add the scheduled job to your crontab
+crontab -l             # confirm it was installed
+make uninstall-cron    # remove the job when you are done
+```
+
+Notes:
+
+* The cron service must be running first (see Prerequisites above).
+* `make install-cron` installs **only** the every-minute-at-second-23 job. The "3rd Friday of the month" expression below is **not** installed by the Makefile; it must be added manually.
+* `make clean` does not remove the cron job; use `make uninstall-cron`.
+* `make install-cron` / `make uninstall-cron` modify your **user** crontab, so nothing happens unless you run them explicitly. Plain `make` never touches cron.
+
+### Step-by-step manual setup (without the Makefile)
 
 1. Go to the project folder and note its absolute path:
    ```bash
-   cd <project-folder>
+   cd linux-antivirus-daemon
    make setup
    pwd
    ```
@@ -205,6 +256,7 @@ A file is malicious if **either** rule matches (and it is not whitelisted):
    crontab -l
    ```
 5. Test it: drop a `.exe` file into `test_dir/`, wait for the next run, and check that it appears in `quarantine/`. To see output, you can append `>> /home/user/lab2/cron.log 2>&1` to the line.
+6. When finished, run `crontab -e` again and delete the line (or run `make uninstall-cron`).
 
 ### Every 1 minute at second 23
 
@@ -270,7 +322,9 @@ If it matches, the file is skipped; otherwise it goes through the extension and 
 | `bad interpreter: No such file or directory` | Windows line endings. Convert to LF (see Prerequisites). |
 | `Permission denied` | Run `chmod +x antivirusd.sh restore.sh antivirus-cron.sh` or `make setup`. |
 | `*** missing separator` from `make` | Makefile recipe lines must start with a tab, not spaces. |
-| Cron job does nothing | Check `systemctl status cron`, use absolute paths, check `crontab -l` and a log file. |
+| Cron job does nothing | Check the service (`systemctl status cron` on Ubuntu, `systemctl status crond` on Fedora), use absolute paths, check `crontab -l` and a log file. |
+| `no crontab for user` appears during `make install-cron` | Normal on first use (no crontab existed yet). The job is still installed; confirm with `crontab -l`. |
+| The scan runs twice a minute | The cron line was installed more than once. Run `make uninstall-cron`, then `make install-cron` again. |
 | A restored file is flagged again | Check that its filename is in `whitelist.txt`. |
 
 ## 8. Notes and limitations
